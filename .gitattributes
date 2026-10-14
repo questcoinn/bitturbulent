@@ -1,0 +1,5 @@
+# Keep text files LF in the working tree on every OS.
+* text=auto eol=lf
+
+# Files whose exact bytes matter (info-hash is computed over them).
+*.torrent binary

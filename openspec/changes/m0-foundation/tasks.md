@@ -29,7 +29,7 @@
 ## 5. 통합 확인
 
 - [x] 5.1 Windows 로컬에서 `cargo xtask ci`를 처음부터 끝까지 실행한다. 확인: 종료 코드 0.
-- [ ] 5.2 사용자가 GitHub 저장소를 만들고 push한 뒤, Actions의 ubuntu와 windows job이 모두 성공하는지 확인한다(M0 완료 기준).
+- [x] 5.2 사용자가 GitHub 저장소를 만들고 push한 뒤, Actions의 ubuntu와 windows job이 모두 성공하는지 확인한다(M0 완료 기준).
 
 ## Workflow follow-up
 

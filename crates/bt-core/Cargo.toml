@@ -1,0 +1,12 @@
+[package]
+name = "bt-core"
+description = "Shared identifier and index types for bitturbulent."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+thiserror.workspace = true
+
+[lints]
+workspace = true

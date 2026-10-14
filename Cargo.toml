@@ -1,0 +1,27 @@
+[workspace]
+resolver = "3"
+members = ["crates/*", "xtask"]
+default-members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[workspace.dependencies]
+bt-core = { path = "crates/bt-core" }
+bt-engine = { path = "crates/bt-engine" }
+bt-session = { path = "crates/bt-session" }
+
+anyhow = "1.0.104"
+cargo_metadata = "0.23.1"
+thiserror = "2.0.21"
+tokio = "1.53.3"
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter", "fmt"] }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }

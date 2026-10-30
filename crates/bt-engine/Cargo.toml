@@ -7,6 +7,7 @@ publish.workspace = true
 
 [dependencies]
 bt-core.workspace = true
+bt-metainfo.workspace = true
 
 [lints]
 workspace = true

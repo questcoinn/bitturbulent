@@ -12,20 +12,18 @@
 - **qBittorrent 구조를 그대로 따른다.** 엔진(qBittorrent의 libtorrent 역할)과 앱 로직(`SessionImpl`/`AddTorrentManager` 역할)을 나누고, 둘은 이벤트 채널로만 통신한다.
 - **상호운용 테스트에는 로컬에 설치된 qBittorrent를 쓴다.** 시드나 피어 역할을 맡겨서 실제 클라이언트와 통신이 맞는지 확인한다.
 
-## 모듈 구조 (제안)
+## 크레이트 구조
+처음에는 단일 크레이트 안의 모듈로 제안했지만, M0에서 workspace로 바꿨다. 경계는 `cargo xtask ci`가 검사한다.
 ```
-src/
-  bencode/     # 인코딩/디코딩
-  metainfo/    # .torrent, magnet, InfoHash, TorrentDescriptor
-  tracker/     # HTTP/UDP announce
-  peer/        # 와이어 프로토콜, 피어 연결 태스크
-  storage/     # 파일↔피스 매핑, 디스크 I/O, 해시 검증
-  picker/      # 피스 선택 전략
-  engine/      # 토렌트별 다운로드 루프 (libtorrent 역할)
-  session/     # 상태 머신, 이벤트 처리, 큐잉, 경로 관리 (SessionImpl/TorrentImpl 역할)
-  add/         # 소스 해석, 중복 처리 (AddTorrentManager 역할)
-  resume/      # resume data 저장/복원
+crates/
+  bt-core/       # 공용 타입: InfoHash, TorrentId, PieceIndex, FileIndex          (M0)
+  bt-metainfo/   # bencode, .torrent, magnet, TorrentDescriptor                  (M1)
+  bt-engine/     # 트래커, 피어, 저장소, 피스 선택, 다운로드 루프 (libtorrent 역할) (M2~M5, M9)
+  bt-session/    # 상태 머신, 큐잉, 경로, resume, 추가 계층 (SessionImpl/AddTorrentManager 역할) (M6~M8, M10)
+  bitturbulent/  # CLI
 ```
+의존 방향은 `bitturbulent → bt-session → bt-engine → bt-metainfo → bt-core` 한 방향이다.
+`bt-core`와 `bt-metainfo`는 비동기 런타임에 의존하지 않는다.
 
 ## 마일스톤
 
@@ -45,6 +43,7 @@ src/
 1. HTTP 트래커 announce(compact 응답 지원)를 구현한다.
 2. UDP 트래커(BEP 15)를 구현한다.
 3. tier 순서대로 다시 시도하고, 주기적으로 재announce한다.
+4. 지원하지 않는 스킴(http, https, udp 외)과 잘못된 URL은 건너뛴다. M1의 `TorrentDescriptor`는 트래커를 거르지 않고 그대로 넘긴다(qBittorrent, libtorrent와 의도적으로 다름).
 - **완료 기준:** 공개 토렌트로 피어 목록을 받아 온다.
 
 ### M3. 피어 와이어 프로토콜
@@ -58,6 +57,7 @@ src/
 2. sparse 방식으로 디스크에 쓴다. 디스크 I/O는 별도 스레드 풀(`spawn_blocking`)에서 한다.
 3. 피스 해시를 검증한다. 실패하면 해당 피스를 버리고 보낸 피어에 실패를 기록한다.
 4. 기존 파일 검사(checking): 재시작했을 때 이미 받은 피스를 찾아낸다.
+5. M1의 "검증 전 경로"(`RawPath`)를 OS별로 안전한 디스크 경로로 바꾸는 정리 함수를 만든다. `..`, 절대 경로, 금지 문자, Windows 예약 이름을 처리한다. 패딩 파일(`FileEntry::is_pad`)은 디스크에 만들지 않는다.
 - **완료 기준:** 다중 파일 토렌트에서 피스를 쓰고, 다시 읽어 검증한 결과가 일치한다.
 
 ### M5. 첫 end-to-end 다운로드

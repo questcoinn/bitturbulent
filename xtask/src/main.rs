@@ -14,11 +14,15 @@ use cargo_metadata::{DependencyKind, Metadata, MetadataCommand, PackageId};
 /// The CLI binary (`bitturbulent`) and `xtask` are unrestricted.
 const ALLOWED_INTERNAL_DEPS: &[(&str, &[&str])] = &[
     ("bt-core", &[]),
-    ("bt-engine", &["bt-core"]),
-    ("bt-session", &["bt-core", "bt-engine"]),
+    ("bt-metainfo", &["bt-core"]),
+    ("bt-engine", &["bt-core", "bt-metainfo"]),
+    ("bt-session", &["bt-core", "bt-metainfo", "bt-engine"]),
 ];
 
-/// Async runtimes that must not appear anywhere in `bt-core`'s dependency tree.
+/// Crates whose non-dev dependency tree must stay free of async runtimes.
+const RUNTIME_FREE: &[&str] = &["bt-core", "bt-metainfo"];
+
+/// Async runtimes that must not appear in a `RUNTIME_FREE` crate's tree.
 const ASYNC_RUNTIMES: &[&str] = &["tokio", "async-std", "smol"];
 
 fn main() -> ExitCode {
@@ -89,10 +93,12 @@ fn check_boundaries() -> Result<(), String> {
         }
     }
 
-    let core = package_id(&metadata, "bt-core")?;
-    for name in non_dev_closure(&metadata, core) {
-        if ASYNC_RUNTIMES.contains(&name.as_str()) {
-            errors.push(format!("bt-core must not depend on async runtime `{name}`"));
+    for &krate in RUNTIME_FREE {
+        let id = package_id(&metadata, krate)?;
+        for name in non_dev_closure(&metadata, id) {
+            if ASYNC_RUNTIMES.contains(&name.as_str()) {
+                errors.push(format!("{krate} must not depend on async runtime `{name}`"));
+            }
         }
     }
 

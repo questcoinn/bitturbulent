@@ -82,6 +82,15 @@ emit torrentFinished / allTorrentsFinished
 중복이 아니면 `Session::addTorrent()`를 호출하고, `m_sourcesByInfoHash`에 info-hash와 source를 매핑해 둔다.
 나중에 `torrentAdded`, `addTorrentFailed` 시그널이 오면 이 매핑으로 원래 source를 찾아 시그널을 다시 보낸다.
 
+### `TorrentDescriptor` 생성 세부 (`src/base/bittorrent/torrentdescriptor.cpp`)
+- `load(data)` (`:131`), `loadFromFile(path)` (`:146`): libtorrent `load_torrent_buffer`/`load_torrent_file`을 `loadTorrentLimits()` (`:81`)로 호출한다. 트래커는 **거르지 않는다**.
+- 제한값은 설정에서 온다. 기본값은 파일 크기 100 MiB(`preferences.cpp:323-326`), bdecode 깊이 100(`:336-339`), 토큰 10,000,000개(`:349-352`)다.
+- `parse(str)` (`:163`):
+  - 입력이 정확히 64자 16진수면(`isV2Hash`, `:71`) `magnet:?xt=urn:btmh:1220` + 입력으로, 정확히 40자 16진수면(`isV1Hash`, `:56`) `magnet:?xt=urn:btih:` + 입력으로 바꾼다. 앞뒤 공백은 자르지 않는다.
+  - libtorrent `parse_magnet_uri`로 해석한 뒤 `removeUnsupportedTrackers` (`:103`, 호출은 `:173`)로 http, https, udp가 아니거나 호스트가 없는 트래커를 버린다(`isSupportedTrackerURL`, `:93`). 이 필터는 **parse 경로에만** 있다.
+  - libtorrent 자체도 magnet의 트래커를 거른다(6.3절).
+- GUI 토렌트 생성기의 형식 선택(V1/V2/하이브리드)은 libtorrent 2.x 빌드에서만 보인다. 1.2 빌드에서는 대신 "정렬 최적화"(패딩 파일) 옵션이 보인다(`src/gui/torrentcreatordialog.cpp:149-153`). 1.2 빌드 qBittorrent로는 v2와 하이브리드 토렌트를 만들 수도, v2 info-hash를 확인할 수도 없다.
+
 ### GUI 변형 (`GUIAddTorrentManager`)
 
 `src/gui/guiaddtorrentmanager.cpp:96`
@@ -216,6 +225,15 @@ finished|seeding     → StoppedUploading / QueuedUploading / ForcedUploading / 
 - 메타데이터가 오면 `remove_torrent(delete_files)`로 지우고 `metadataDownloaded(TorrentInfo)` 시그널을 보낸다.
 
 ---
+
+### 6.3 magnet URI 파싱 (libtorrent `parse_magnet_uri`)
+libtorrent `RC_2_0` 브랜치의 `src/magnet_uri.cpp`와 `src/parse_url.cpp`를 확인한 결과다(줄 번호는 따로 기록하지 않았다).
+- 입력은 `magnet:?`으로 시작해야 하고, 접두어 비교는 대소문자를 구분한다. 매개변수 이름은 대소문자를 구분하지 않고, `tr.1`, `xt.2`처럼 `.<숫자>` 접미사를 떼고 비교한다.
+- `xt=urn:btih:`는 40자 16진수나 32자 base32, `xt=urn:btmh:`는 `1220`으로 시작하는 SHA-256 multihash만 받는다. 형식이 틀리면 `invalid_info_hash`로 **전체 파싱이 실패**한다. 알 수 없는 `xt` 스킴은 무시한다. 같은 종류의 `xt`가 반복되면 **마지막 값**이 남는다. 유효한 `xt`가 하나도 없으면 `missing_info_hash_in_uri` 오류다.
+- `tr`은 등장 순서대로 `tracker_tiers`에 `tier++`(0부터)를 받는다. 즉 **트래커마다 tier가 하나씩** 생긴다.
+- `tr` 값은 `is_valid_tracker_url`을 통과해야 추가된다. 이 함수는 http, https, udp 스킴(대소문자 무시)과 ASCII 호스트명(또는 대괄호 IPv6), 숫자 포트만 허용하고, 공백과 제어 문자를 거부한다. 따라서 qBittorrent의 `removeUnsupportedTrackers`(`torrentdescriptor.cpp:103-124`)는 libtorrent가 이미 거른 결과를 한 번 더 거르는 셈이다.
+- `dn`은 퍼센트 디코딩해 이름으로 쓰고, `ws`는 디코딩에 성공하면 웹시드로 추가한다.
+- bitturbulent는 트래커를 거르지 않는다(M1 design D8). 지원하지 않는 트래커는 M2 트래커 계층에서 건너뛴다.
 
 ## 7. 파일 완료 / 토렌트 완료
 

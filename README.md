@@ -7,14 +7,16 @@ BitTorrent 클라이언트 Rust 구현체(목표). 구조는 qBittorrent 참고.
 ```
 crates/
   bt-core/       공용 타입 (InfoHash, TorrentId, PieceIndex, FileIndex)
+  bt-metainfo/   bencode, .torrent, magnet 해석 (TorrentDescriptor 역할)
   bt-engine/     BitTorrent 엔진 (libtorrent 역할)
   bt-session/    상태 머신, 큐잉, 경로, resume (SessionImpl 역할)
   bitturbulent/  CLI 바이너리
 xtask/           개발용 명령 (품질 게이트)
 ```
 
-의존 방향은 `bitturbulent → bt-session → bt-engine → bt-core` 한 방향이다.
-`bt-core`는 비동기 런타임에 의존하지 않는다. 이 규칙은 `cargo xtask ci`가 검사한다.
+의존 방향은 `bitturbulent → bt-session → bt-engine → bt-metainfo → bt-core` 한 방향이다.
+위 계층은 자기보다 아래에 있는 크레이트에 직접 의존해도 된다.
+`bt-core`와 `bt-metainfo`는 비동기 런타임에 의존하지 않는다. 이 규칙은 `cargo xtask ci`가 검사한다.
 
 ## 개발
 
